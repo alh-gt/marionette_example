@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.2/backbone-min.js"></script>
+    <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/backbone.marionette/1.8.0/backbone.marionette.min.js"></script>
+    <script>
+      
+      // Appを起動
+      $(function() {
+        App = new Backbone.Marionette.Application();
+  
+        // App起動時に呼ばれる
+        App.addInitializer(function(){
+          // var router = new App.Route.Router();          
+        });
+  
+        var FooItemView = Marionette.ItemView.extend({
+          template: '#itemTemplate',
+          events: {
+            'click #btn': 'buttonClicked'
+          },
+          buttonClicked: function() {
+            console.log(this)
+            alert(this.model.get('value'))
+          }
+        });
+        var fooItemView = new FooItemView({
+          el: '#foo',
+          model: new Backbone.Model({
+            name: 'bar',
+            value: 'aaa'
+          })
+        });
+        fooItemView.render();
+
+
+        var HogeItemView = Marionette.ItemView.extend({
+          template: '#listTemplate',
+        });
+        // var HogeCollectionView = Marionette.CollectionView.extend({
+        var HogeCollectionView = Marionette.CollectionView.extend({
+          el: '#hogeList',
+          itemView: HogeItemView
+        });
+        var hogeCollectionView = new HogeCollectionView({
+          collection: new Backbone.Collection([
+            {name: 'foo'},
+            {name: 'bar'},
+            {name: 'baz'}
+          ])
+
+        });
+        // renderは定義済み
+        hogeCollectionView.render();
+
+        var ButtonView = Marionette.ItemView.extend({
+          template: '#btn2',
+          events: {
+            'click #btn3': 'buttonClicked2'
+          },
+          buttonClicked2: function() {
+            hogeCollectionView.collection.add({name: 'add'});
+          }
+        });
+        var buttonView = new ButtonView({
+          el: '#yakekuso',
+          model: new Backbone.Model({
+          })
+        });
+        buttonView.render();
+
+
+        App.start();
+      });
+
+    </script>
+
+  </head>
+  <body>
+    <section id="foo">
+
+    </section>
+
+    <script type="text/template" id="itemTemplate">
+        <div><%- name %></div>
+        <input type="text" value="<%= value %>">
+        <button id="btn">ぼたん</button>
+    </script>
+    
+    <section>
+      <ul id="hogeList">
+
+      </ul>
+      <div id="yakekuso"></div>
+    </section>
+    <script id="btn2" type="text/template">
+      <button id="btn3">ぼたんに</button>
+    </script>
+
+    <script type="text/template" id="listTemplate">
+        <li><%- name %></li>
+    </script>
+
+    
+
+  </body>
+</html>
+
+
