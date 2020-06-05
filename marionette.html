@@ -4,105 +4,196 @@
     <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
     <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
     <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.1.2/backbone-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.stickit/0.9.2/backbone.stickit.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/backbone.validation/0.11.5/backbone-validation-min.js"></script>
     <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/backbone.marionette/1.8.0/backbone.marionette.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>here is header</h1>
+    </header>
+    <section id="main">
+
+    </section>
+    <footer>
+      <p>I am FOOTER</p>
+    </footer>
+    <script type="text/template" id="layoutTemplate">
+      <section id="container">
+        <div id="input"></div>
+        <div id="button"></div>
+        <ul id="list"></ul>
+      </section>
+    </script>
+
+    <script type="text/template" id="inputTemplate">
+      <input type="text" name="inputText" id="inputText">
+    </script>
+    <script type="text/template" id="buttonTemplate">
+      <button <%= disabled %>>ぼたん</button>
+    </script>
+    <script type="text/template" id="listTemplate">
+      <li><%- name %> : <%- age %></li>
+    </script>
+
     <script>
-      
       // Appを起動
       $(function() {
-        App = new Backbone.Marionette.Application();
+        App = new Backbone.Marionette.Application()
+        App.addRegions({
+          'header': 'header',
+          'main': '#main',
+          'footer': 'footer'
+        })
+  
+        let InputModel = Backbone.Model.extend({
+          initialize: function(options) {
+          },
+          defaults: {
+            name: ''
+          },
+          validation: {
+            name: function(value, attr, compute) {
+              console.log('validation called')
+              if(_.isEmpty(value)){
+                return 'no name'
+              }
+              if(10 < value.length){
+                return 'name invalidate'
+              }
+            }
+          }
+        })
+        let InputView = Backbone.Marionette.ItemView.extend({
+          template: "#inputTemplate",
+          events: {
+            "keyup input": "inputChanged"
+          },
+          inputChanged: function(e) {
+            console.log('onChange called')
+            let check = this.model.set({name: $(e.target).val()}, {validate: true})
+            if(check) {
+              console.log('valid')
+            }else {
+              console.log('invalid')
+            }
+          },
+          onShow: function() {
+            this.stickit()
+            Backbone.Validation.bind(this)
+          }
+        })
+
+        let Collection = Backbone.Collection.extend({
+          model: Backbone.Model,
+          validate: function (collection) {
+            console.log("collection validation called")
+            if(collection.length === 0 ) {
+              return 'length is zero'
+            } else if(5 < collection.length) {
+              return 'length over'
+            }
+          }
+        })
+        Collection.prototype.set = function (models, options) {
+          var parentResult = Backbone.Collection.prototype.set.apply(this, arguments);
+          if (options && options.validate) {
+            if (!_.isFunction(this.validate)) {
+              throw new Error('Cannot validate a collection without the `validate` method');
+            }
+            var errors = this.validate(this.models);
+            if (errors) {
+              this.trigger('invalid', this, errors);
+              this.remove(parentResult)
+            }
+          }
+          return parentResult;
+        };
+        let ButtonModel = Backbone.Model.extend({
+          defaults: {
+            disabled: "disabled"
+          }
+        })
+        let ButtonView = Marionette.ItemView.extend({
+          template: "#buttonTemplate",
+          model: ButtonModel
+        })
+
+        let CommonModel = Backbone.Model.extend({
+          defaults: {
+            inputModel: new InputModel(),
+            childCollection: new Collection(),
+            buttonModel: new ButtonModel()
+          }
+        })
+        var Layout = Marionette.Layout.extend({
+          template: "#layoutTemplate",
+          regions: {
+            inputRegion: "#input",
+            buttonRegion: "#button",
+            listRegion: "#list"
+          },
+          events: {
+            "click button": "buttonClicked"
+          },
+          onShow: function() {
+            let that = this
+            this.listenTo(this.inputView, 'valid', function(view))
+            this.model.get("inputModel").on("invalid", function(model, error) {
+              console.log(error)
+            })
+            this.inputView = new InputView({model: this.model.get("inputModel")})
+            this.inputRegion.show(this.inputView)
+            this.buttonView = new ButtonView({
+              model: this.model.get("buttonModel")
+            })
+            this.buttonRegion.show(this.buttonView)
+
+            let ListView = Marionette.ItemView.extend({
+              template: "#listTemplate"
+            })
+            let CollectionView = Marionette.CollectionView.extend({
+              itemView: ListView
+            })
+            this.model.set("childCollection", new Collection([
+                {name: "alice", age: 13},
+                {name: "bravo", age: 22},
+                {name: "chary", age: 35}
+            ]));
+            this.model.get("childCollection").on("invalid", function(model, error) {
+              console.log(error)
+              alert(JSON.stringify(error))
+              return false;
+            })
+
+            this.listView = new CollectionView({
+              collection: this.model.get("childCollection")
+            })
+            this.listRegion.show(this.listView)
+          },
+          buttonClicked: function() {
+            let value = this.inputRegion.currentView.model.get("name")
+            this.model.get("childCollection").set({"name": value, "age": 99}, {remove: false, validate: true})
+            this.listRegion.currentView.render()
+          }
+        })
+        
+        App.module('View', function(view, app) {
+          view.MainLayout = Layout
+        })
   
         // App起動時に呼ばれる
         App.addInitializer(function(){
-          // var router = new App.Route.Router();          
-        });
-  
-        var FooItemView = Marionette.ItemView.extend({
-          template: '#itemTemplate',
-          events: {
-            'click #btn': 'buttonClicked'
-          },
-          buttonClicked: function() {
-            console.log(this)
-            alert(this.model.get('value'))
-          }
-        });
-        var fooItemView = new FooItemView({
-          el: '#foo',
-          model: new Backbone.Model({
-            name: 'bar',
-            value: 'aaa'
-          })
-        });
-        fooItemView.render();
+          App.main.show(new App.View.MainLayout({
+            model: new CommonModel()
+          }))
+        })
 
 
-        var HogeItemView = Marionette.ItemView.extend({
-          template: '#listTemplate',
-        });
-        // var HogeCollectionView = Marionette.CollectionView.extend({
-        var HogeCollectionView = Marionette.CollectionView.extend({
-          el: '#hogeList',
-          itemView: HogeItemView
-        });
-        var hogeCollectionView = new HogeCollectionView({
-          collection: new Backbone.Collection([
-            {name: 'foo'},
-            {name: 'bar'},
-            {name: 'baz'}
-          ])
-
-        });
-        // renderは定義済み
-        hogeCollectionView.render();
-
-        var ButtonView = Marionette.ItemView.extend({
-          template: '#btn2',
-          events: {
-            'click #btn3': 'buttonClicked2'
-          },
-          buttonClicked2: function() {
-            hogeCollectionView.collection.add({name: 'add'});
-          }
-        });
-        var buttonView = new ButtonView({
-          el: '#yakekuso',
-          model: new Backbone.Model({
-          })
-        });
-        buttonView.render();
-
-
-        App.start();
-      });
+        App.start()
+      })
 
     </script>
-
-  </head>
-  <body>
-    <section id="foo">
-
-    </section>
-
-    <script type="text/template" id="itemTemplate">
-        <div><%- name %></div>
-        <input type="text" value="<%= value %>">
-        <button id="btn">ぼたん</button>
-    </script>
-    
-    <section>
-      <ul id="hogeList">
-
-      </ul>
-      <div id="yakekuso"></div>
-    </section>
-    <script id="btn2" type="text/template">
-      <button id="btn3">ぼたんに</button>
-    </script>
-
-    <script type="text/template" id="listTemplate">
-        <li><%- name %></li>
-    </script>
-
     
 
   </body>
